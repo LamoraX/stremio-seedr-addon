@@ -20,8 +20,8 @@
   "license": "MIT",
   "type": "commonjs",
   "engines": {
-    "node": "20.x"
-  },
+    "node": "22.x"
+  }
   "dependencies": {
     "stremio-addon-sdk": "^1.6.10",
     "axios": "^1.6.0",
