@@ -9,49 +9,31 @@ const DEBUG_LOGS = process.env.DEBUG_SEEDR === "1";
  * Request a device code for authorization
  * @returns {Promise<{device_code: string, user_code: string, verification_uri: string, expires_in: number, interval: number}>}
  */
-async function getDeviceCode() {
-    try {
-        const params = new URLSearchParams();
-        params.append("client_id", CLIENT_ID);
-        params.append("scope", "files.read files.write tasks.read tasks.write profile");
 
-        const response = await axios.post(`${SEEDR_BASE_URL}/oauth/device/code`, params, {
-            headers: { "Content-Type": "application/x-www-form-urlencoded" }
-        });
-        return response.data;
-    } catch (error) {
-        if (error.response) {
-            console.error("Seedr Device Code Error:", error.response.data);
-            throw new Error(error.response.data.error_description || error.response.data.error || error.message);
-        }
-        throw error;
-    }
+const DEVICE_CODE_URL = "https://www.seedr.cc/api/device/code";
+const DEVICE_AUTHORIZE_URL = "https://www.seedr.cc/api/device/authorize";
+
+async function getDeviceCode() {
+    const response = await axios.get(DEVICE_CODE_URL, {
+        params: { client_id: CLIENT_ID }
+    });
+    return response.data;
 }
 
-/**
- * Poll for authorization token after user enters code
- * @param {string} deviceCode - The device code from getDeviceCode
- * @returns {Promise<{access_token: string, token_type: string, expires_in: number, refresh_token: string}|null>}
- */
 async function pollForToken(deviceCode) {
     try {
-        const params = new URLSearchParams();
-        params.append("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
-        params.append("device_code", deviceCode);
-        params.append("client_id", CLIENT_ID);
-
-        const response = await axios.post(`${SEEDR_BASE_URL}/oauth/token`, params, {
-            headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        const response = await axios.get(DEVICE_AUTHORIZE_URL, {
+            params: {
+                client_id: CLIENT_ID,
+                device_code: deviceCode
+            }
         });
 
-        if (response.data && response.data.access_token) {
-            return response.data;
-        }
-        return null;
+        return response.data?.access_token ? response.data : null;
     } catch (error) {
-        // Authorization pending - user hasn't entered code yet
-        if (error.response && (error.response.data.error === "authorization_pending" || error.response.status === 400)) {
-            return null;
+        if (error.response?.status === 400) {
+            const errorCode = error.response.data?.error;
+            if (errorCode === "authorization_pending") return null;
         }
         throw error;
     }
