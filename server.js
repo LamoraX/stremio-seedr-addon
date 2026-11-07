@@ -934,36 +934,17 @@ app.get("/:token/resolve/:infoHash", async (req, res) => {
                         reasonPhrase.includes("queue_full") ||
                         reasonPhrase.includes("storage_full");
 
-                    if (retryCount < maxRetries && isSpaceIssue && !hasClearedAccountForSpaceIssue) {
-                        console.warn("⚠️  Seedr space/queue limit reached. Clearing Seedr content and retrying...");
-
-                        // If it was added to wishlist during the failed attempt (soft fail), delete it first to be clean
-                        const wishlistId = addResult?.wt?.id || error.wt?.id;
-                        if (wishlistId) {
-                            try {
-                                await seedrApi.deleteFromWishlist(accessToken, wishlistId);
-                            } catch (wishlistError) {
-                                console.warn("⚠️  Failed to delete wishlist item before retry:", wishlistError.response?.data || wishlistError.message);
-                            }
-                        }
-
-                        const clearResult = await seedrApi.clearAccount(accessToken);
-                        if (!clearResult.result) {
-                            console.error("❌ Failed to clear Seedr content:", clearResult.error);
-                            // If clear fails, we probably can't add anyway, but let loop continue to fail naturally or try
-                        }
-                        hasClearedAccountForSpaceIssue = true;
-                        retryCount++;
-                        // Continue to next iteration (retry)
+                    if (isSpaceIssue) {
+                        console.warn("Seedr storage or queue limit reached. No files deleted.");
+                    
+                        return res.status(507).json({
+                            error: "Storage full",
+                            message: "Seedr storage or queue limit reached. Please manage storage manually."
+                        });
                     } else {
-                        const statusCode = isSpaceIssue ? 507 : 500;
-                        const message = isSpaceIssue
-                            ? "Seedr reported a space or queue limit. Attempted to clear account but the add still could not proceed."
-                            : error.message;
-
-                        return res.status(statusCode).json({
-                            error: isSpaceIssue ? "Storage full" : "Failed to add torrent",
-                            message
+                        return res.status(500).json({
+                            error: "Failed to add torrent",
+                            message: error.message
                         });
                     }
                 }
