@@ -2,7 +2,7 @@ const axios = require("axios");
 
 // Seedr API Configuration
 const SEEDR_BASE_URL = "https://v2.seedr.cc/api/v0.1/p";
-const CLIENT_ID = "seedr_xbmc";
+const CLIENT_ID = "tn7B667iqQajxkyMKtiVitHvfnxsS1Tj";
 const DEBUG_LOGS = process.env.DEBUG_SEEDR === "1";
 
 /**
@@ -10,35 +10,71 @@ const DEBUG_LOGS = process.env.DEBUG_SEEDR === "1";
  * @returns {Promise<{device_code: string, user_code: string, verification_uri: string, expires_in: number, interval: number}>}
  */
 
-const DEVICE_CODE_URL = "https://www.seedr.cc/api/device/code";
-const DEVICE_AUTHORIZE_URL = "https://www.seedr.cc/api/device/authorize";
-
 async function getDeviceCode() {
-    const response = await axios.get(DEVICE_CODE_URL, {
-        params: { client_id: CLIENT_ID }
-    });
-    return response.data;
-}
-
-async function pollForToken(deviceCode) {
     try {
-        const response = await axios.get(DEVICE_AUTHORIZE_URL, {
-            params: {
-                client_id: CLIENT_ID,
-                device_code: deviceCode
-            }
-        });
+        const params = new URLSearchParams();
+        params.append("client_id", CLIENT_ID);
+        params.append("scope", "files.read files.write tasks.read tasks.write profile");
 
-        return response.data?.access_token ? response.data : null;
+        const response = await axios.post(
+            `${SEEDR_BASE_URL}/oauth/device/code`,
+            params,
+            {
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            }
+        );
+
+        return response.data;
     } catch (error) {
-        if (error.response?.status === 400) {
-            const errorCode = error.response.data?.error;
-            if (errorCode === "authorization_pending") return null;
+        if (error.response) {
+            console.error("Seedr Device Code Error:", error.response.data);
+            throw new Error(
+                error.response.data.error_description ||
+                error.response.data.error ||
+                error.message
+            );
         }
         throw error;
     }
 }
 
+async function pollForToken(deviceCode) {
+    try {
+        const params = new URLSearchParams();
+        params.append(
+            "grant_type",
+            "urn:ietf:params:oauth:grant-type:device_code"
+        );
+        params.append("device_code", deviceCode);
+        params.append("client_id", CLIENT_ID);
+
+        const response = await axios.post(
+            `${SEEDR_BASE_URL}/oauth/token`,
+            params,
+            {
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            }
+        );
+
+        return response.data?.access_token ? response.data : null;
+
+    } catch (error) {
+        if (
+            error.response &&
+            (
+                error.response.data?.error === "authorization_pending" ||
+                error.response.status === 400
+            )
+        ) {
+            return null;
+        }
+        throw error;
+    }
+}
 /**
  * Get contents of a folder (or root folder if no folderId)
  * @param {string} accessToken - The access token
