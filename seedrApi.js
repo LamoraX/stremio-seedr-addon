@@ -2,7 +2,7 @@ const axios = require("axios");
 
 // Seedr API Configuration
 const SEEDR_BASE_URL = "https://v2.seedr.cc/api/v0.1/p";
-const CLIENT_ID = "tn7B667iqQajxkyMKtiVitHvfnxsS1Tj";
+const CLIENT_ID = "seedr_xbmc";
 const DEBUG_LOGS = process.env.DEBUG_SEEDR === "1";
 
 /**
